@@ -1,0 +1,85 @@
+; Script for programming of S32K344.
+;
+; $Author: nxf48565 $
+; $Date: Tue Mar  5 15:26:44 2019 $
+; This file contains sample code only. It is not part of the production code deliverables
+
+;=========================================================================
+; System settings  
+;=========================================================================
+sys.down
+SYStem.CPU S32K344-M7-0
+;SYStem.CPU S32K344-M0+-HSE
+SYStem.config.core 1. 1.
+SYStem.config.debugporttype JTAG
+System.JTAGclock 10MHz
+sys.Option DUALPORT ON
+sys.up
+if RUN()
+break
+
+ETM.off
+ITM.off
+HTM.off
+
+;Disable all other watchdogs
+WAIT 0.2s
+D.S SD:0x402DC300 %LE %LONG 0x1         ;   MC_ME.PRTN1_PCONF
+D.S SD:0x402DC304 %LE %LONG 0x1         ;   MC_ME.PRTN1_PUPD
+D.S SD:0x402DC000 %LE %LONG 0x00005AF0  ;  MC_ME.MC_ME_CTL_KEY.R
+D.S SD:0x402DC000 %LE %LONG 0x0000A50F  ;  MC_ME.MC_ME_CTL_KEY.R
+WAIT 0.2s
+D.S SD:0x402DC330 %LE %LONG 0x5F3F001F  ;   MC_ME.MC_ME_PRTN1_COFB0_CLKEN
+D.S SD:0x402DC304 %LE %LONG 0x1         ;   MC_ME.PRTN1_PUPD
+D.S SD:0x402DC000 %LE %LONG 0x00005AF0  ;  MC_ME.MC_ME_CTL_KEY.R
+D.S SD:0x402DC000 %LE %LONG 0x0000A50F  ;  MC_ME.MC_ME_CTL_KEY.R
+WAIT 0.2s
+Data.Set SD:0x40270010 %Long 0x0000C520 ;  SWT_0.SR
+Data.Set SD:0x40270010 %Long 0x0000D928 ;  SWT_0.SR
+Data.Set SD:0x40270000 %Long 0xFF000000 ;  SWT_0.CR
+WAIT 0.2s
+D.S SD:0x402DC334 %LE %LONG 0x1CFE2FFD  ;  MC_ME.MC_ME_PRTN1_COFB1_CLKEN.R
+D.S SD:0x402DC304 %LE %LONG 0x00000001  ;  MC_ME.PRTN1_PUPD
+D.S SD:0x402DC000 %LE %LONG 0x00005AF0  ;  MC_ME.MC_ME_CTL_KEY.R
+D.S SD:0x402DC000 %LE %LONG 0x0000A50F  ;  MC_ME.MC_ME_CTL_KEY.R
+WAIT 0.2s
+
+;TCM Mem Init
+;D.S SD:0x20000000--0x2000FFFF %LE %LONG  0x00  ; DTCM_0, DTCM_1, 128k
+;D.S SD:0x21000000--0x2100FFFF %LE %LONG  0x00  ; DTCM_0 backdoor
+;D.S SD:0x21400000--0x2140FFFF %LE %LONG  0x00  ; DTCM_1 backdoor
+;D.S SD:0x00000000--0x00007FFF %LE %LONG  0x00  ; ITCM_0, ITCM_1, 64k
+;D.S SD:0x11000000--0x11007FFF %LE %LONG  0x00  ; ITCM_0, backdoor
+;D.S SD:0x11400000--0x11407FFF %LE %LONG  0x00  ; ITCM_1, backdoor
+
+;DMA SRAM Init
+D.S SD:0x40280003 %LE %BYTE 0x80		;Channel 0 Enable, DMAMUX_0
+
+D.S SD:0x40210020 %LE %LONG 0x00400000	;SADDR (pflash start address), EDMA TCD_0
+D.S SD:0x40210024 %LE %LONG 0x03030000	;SSIZE 3, DSIZE 3, SOFF 0
+D.S SD:0x40210028 %LE %LONG 0x00050000	;Nbytes, SRAM_0 + SRAM_1 = 0x20400000~0x2044FFFF;
+D.S SD:0x4021002C %LE %LONG 0x00000000	;SLAST
+D.S SD:0x40210030 %LE %LONG 0x20400000	;DADDR, SRAM_0
+D.S SD:0x40210034 %LE %LONG 0x00080008	;CITER 8, DOFF 8
+D.S SD:0x40210038 %LE %LONG 0xFFFB0000	;DLASTSGA = -NBYTES
+D.S SD:0x4021003C %LE %LONG 0x00000001	;Start
+
+DO ~~/demo/arm/flash/s32k3.cmm PREPAREONLY
+FLASH.ReProgram ALL
+;TargetSystem.NewInstance M0+_HSE /ARCHitecture ARM
+;InterCom M0+_HSE SYStem.CPU S32K344-M0+-HSE
+;InterCom M0+_HSE SYStem.CONFIG CORE 3. 1.
+;InterCom M0+_HSE SYStem.CONFIG SLAVE OFF
+;InterCom M0+_HSE SYStem.Mode Attach
+;InterCom M0+_HSE break
+;InterCom M0+_HSE d.load.elf *
+;InterCom M0+_HSE go
+;InterCom M0+_HSE quit
+Data.Load.Elf *
+FLASH.ReProgram OFF
+;wait 0.2s
+;sys.up
+;wait 0.2s
+go main
+d.l
+ENDDO
